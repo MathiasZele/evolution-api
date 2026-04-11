@@ -1,7 +1,8 @@
 diff --git a/node_modules/baileys/lib/Defaults/index.js b/node_modules/baileys/lib/Defaults/index.js
+index 7651b27..7b6d3f3 100644
 --- a/node_modules/baileys/lib/Defaults/index.js
 +++ b/node_modules/baileys/lib/Defaults/index.js
-@@ -80,6 +80,17 @@
+@@ -80,6 +80,17 @@ export const MEDIA_PATH_MAP = {
      'md-msg-hist': '/mms/md-app-state',
      'biz-cover-photo': '/pps/biz-cover-photo'
  };
@@ -20,9 +21,10 @@ diff --git a/node_modules/baileys/lib/Defaults/index.js b/node_modules/baileys/l
      audio: 'Audio',
      document: 'Document',
 diff --git a/node_modules/baileys/lib/Socket/messages-send.js b/node_modules/baileys/lib/Socket/messages-send.js
+index 074978f..fda3fbf 100644
 --- a/node_modules/baileys/lib/Socket/messages-send.js
 +++ b/node_modules/baileys/lib/Socket/messages-send.js
-@@ -448,7 +448,7 @@
+@@ -448,7 +448,7 @@ export const makeMessagesSocket = (config) => {
                  const bytes = encodeNewsletterMessage(patched);
                  binaryNodeContent.push({
                      tag: 'plaintext',
@@ -32,9 +34,10 @@ diff --git a/node_modules/baileys/lib/Socket/messages-send.js b/node_modules/bai
                  });
                  const stanza = {
 diff --git a/node_modules/baileys/lib/Utils/messages-media.js b/node_modules/baileys/lib/Utils/messages-media.js
+index 0d32dfb..4b7558c 100644
 --- a/node_modules/baileys/lib/Utils/messages-media.js
 +++ b/node_modules/baileys/lib/Utils/messages-media.js
-@@ -8,7 +8,7 @@
+@@ -8,7 +8,7 @@ import { join } from 'path';
  import { Readable, Transform } from 'stream';
  import { URL } from 'url';
  import { proto } from '../../WAProto/index.js';
@@ -43,7 +46,7 @@ diff --git a/node_modules/baileys/lib/Utils/messages-media.js b/node_modules/bai
  import { getBinaryNodeChild, getBinaryNodeChildBuffer, jidNormalizedUser } from '../WABinary/index.js';
  import { aesDecryptGCM, aesEncryptGCM, hkdf } from './crypto.js';
  import { generateMessageIDV2 } from './generics.js';
-@@ -507,7 +507,7 @@
+@@ -507,7 +507,7 @@ export function extensionForMediaMessage(message) {
      return extension;
  }
  export const getWAUploadToServer = ({ customUploadHosts, fetchAgent, logger, options }, refreshMediaConn) => {
@@ -52,7 +55,7 @@ diff --git a/node_modules/baileys/lib/Utils/messages-media.js b/node_modules/bai
          // send a query JSON to obtain the url & auth token to upload our media
          let uploadInfo = await refreshMediaConn(false);
          let urls;
-@@ -516,7 +516,14 @@
+@@ -516,7 +516,14 @@ export const getWAUploadToServer = ({ customUploadHosts, fetchAgent, logger, opt
          for (const { hostname } of hosts) {
              logger.debug(`uploading to "${hostname}"`);
              const auth = encodeURIComponent(uploadInfo.auth); // the auth token
@@ -68,7 +71,7 @@ diff --git a/node_modules/baileys/lib/Utils/messages-media.js b/node_modules/bai
              // eslint-disable-next-line @typescript-eslint/no-explicit-any
              let result;
              try {
-@@ -547,13 +554,15 @@
+@@ -547,13 +554,15 @@ export const getWAUploadToServer = ({ customUploadHosts, fetchAgent, logger, opt
                      parsed = undefined;
                  }
                  result = parsed;
@@ -88,9 +91,10 @@ diff --git a/node_modules/baileys/lib/Utils/messages-media.js b/node_modules/bai
                      break;
                  }
 diff --git a/node_modules/baileys/lib/Utils/messages.js b/node_modules/baileys/lib/Utils/messages.js
+index eff7a53..c78f8b0 100644
 --- a/node_modules/baileys/lib/Utils/messages.js
 +++ b/node_modules/baileys/lib/Utils/messages.js
-@@ -100,17 +100,20 @@
+@@ -100,19 +100,22 @@ export const prepareWAMessageMedia = async (message, options) => {
          logger?.info({ key: cacheableKey }, 'Preparing raw media for newsletter');
          const { filePath, fileSha256, fileLength } = await getRawMediaUploadData(uploadData.media, options.mediaTypeOverride || mediaType, logger);
          const fileSha256B64 = fileSha256.toString('base64');
@@ -116,7 +120,7 @@ diff --git a/node_modules/baileys/lib/Utils/messages.js b/node_modules/baileys/l
                  ...uploadData,
                  media: undefined
              })
-@@ -132,7 +135,7 @@
+@@ -132,7 +135,7 @@ export const prepareWAMessageMedia = async (message, options) => {
      }
      const requiresDurationComputation = mediaType === 'audio' && typeof uploadData.seconds === 'undefined';
      const requiresThumbnailComputation = (mediaType === 'image' || mediaType === 'video') && typeof uploadData['jpegThumbnail'] === 'undefined';
