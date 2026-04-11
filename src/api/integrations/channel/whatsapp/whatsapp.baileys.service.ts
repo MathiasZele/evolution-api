@@ -2451,6 +2451,28 @@ export class BaileysStartupService extends ChannelStartupService {
       // The forward wrapper bypasses Baileys' newsletter encryption/upload
       // path → WA server ACKs but silently drops the media.
       if (isJidNewsletter(sender)) {
+        // If the message is already an encoded proto (imageMessage,
+        // videoMessage, documentMessage, ptvMessage…), use relayMessage
+        // to publish it as-is. The media has already been uploaded via
+        // the newsletter CDN path by prepareWAMessageMedia (jid was
+        // passed in prepareMediaMessage).
+        const isEncodedProto = Object.keys(message).some((k) => k.endsWith('Message'));
+        if (isEncodedProto) {
+          const m = generateWAMessageFromContent(sender, message, {
+            timestamp: new Date(),
+            userJid: this.instance.wuid,
+            messageId,
+            quoted,
+          });
+          const id = await this.client.relayMessage(sender, message, { messageId });
+          m.key = { id, remoteJid: sender, fromMe: true };
+          for (const [key, value] of Object.entries(m)) {
+            if (!value || (isArray(value) && (value as any[]).length) === 0) {
+              delete (m as any)[key];
+            }
+          }
+          return m;
+        }
         return await this.client.sendMessage(
           sender,
           message as unknown as AnyMessageContent,
@@ -3002,7 +3024,7 @@ export class BaileysStartupService extends ChannelStartupService {
     return statusSent;
   }
 
-  private async prepareMediaMessage(mediaMessage: MediaMessage) {
+  private async prepareMediaMessage(mediaMessage: MediaMessage, destinationJid?: string) {
     try {
       const type = mediaMessage.mediatype === 'ptv' ? 'video' : mediaMessage.mediatype;
 
@@ -3044,7 +3066,13 @@ export class BaileysStartupService extends ChannelStartupService {
         {
           [type]: mediaInput,
         } as any,
-        { upload: this.client.waUploadToServer },
+        {
+          upload: this.client.waUploadToServer,
+          // Pass the destination JID so prepareWAMessageMedia takes the
+          // newsletter branch when targeting a channel — uploads via the
+          // /newsletter/* CDN paths so the channel renderer can find the media.
+          ...(destinationJid && { jid: destinationJid }),
+        } as any,
       );
 
       const mediaType = mediaMessage.mediatype + 'Message';
@@ -3243,7 +3271,7 @@ export class BaileysStartupService extends ChannelStartupService {
 
     if (file) mediaData.media = file.buffer.toString('base64');
 
-    const generate = await this.prepareMediaMessage(mediaData);
+    const generate = await this.prepareMediaMessage(mediaData, createJid(data.number));
 
     const mediaSent = await this.sendMessageWithTyping(
       data.number,
@@ -3276,7 +3304,7 @@ export class BaileysStartupService extends ChannelStartupService {
 
     if (file) mediaData.media = file.buffer.toString('base64');
 
-    const generate = await this.prepareMediaMessage(mediaData);
+    const generate = await this.prepareMediaMessage(mediaData, createJid(data.number));
 
     const mediaSent = await this.sendMessageWithTyping(
       data.number,
