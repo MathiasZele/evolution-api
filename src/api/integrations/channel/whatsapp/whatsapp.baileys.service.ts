@@ -2447,6 +2447,16 @@ export class BaileysStartupService extends ChannelStartupService {
     }
 
     if (!message['audio'] && !message['poll'] && !message['sticker'] && sender != 'status@broadcast') {
+      // Newsletters require a native publish, NOT a forward re-wrap.
+      // The forward wrapper bypasses Baileys' newsletter encryption/upload
+      // path → WA server ACKs but silently drops the media.
+      if (isJidNewsletter(sender)) {
+        return await this.client.sendMessage(
+          sender,
+          message as unknown as AnyMessageContent,
+          option as unknown as MiscMessageGenerationOptions,
+        );
+      }
       return await this.client.sendMessage(
         sender,
         {
