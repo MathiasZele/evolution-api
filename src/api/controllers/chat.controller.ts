@@ -126,4 +126,8 @@ export class ChatController {
   public async fetchChannels({ instanceName }: InstanceDto, query: Query<Contact>) {
     return await this.waMonitor.waInstances[instanceName].fetchChannels(query);
   }
+
+  public async findChannelByInvite({ instanceName }: InstanceDto, data: { inviteCode: string }) {
+    return await this.waMonitor.waInstances[instanceName].findChannelByInvite(data.inviteCode);
+  }
 }

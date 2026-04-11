@@ -5814,6 +5814,16 @@ export class BaileysStartupService extends ChannelStartupService {
     }
   }
 
+  public async findChannelByInvite(inviteCode: string) {
+    try {
+      const code = inviteCode.replace(/^https?:\/\/whatsapp\.com\/channel\//, '').trim();
+      const metadata = await (this.client as any).newsletterMetadata('invite', code);
+      return metadata;
+    } catch (error: any) {
+      throw new NotFoundException('Channel invite not resolvable', error?.toString?.() ?? String(error));
+    }
+  }
+
   public async fetchChannels(query: Query<Contact>) {
     const page = Number((query as any)?.page ?? 1);
     const limit = Number((query as any)?.limit ?? (query as any)?.rows ?? 50);

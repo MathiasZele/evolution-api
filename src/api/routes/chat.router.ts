@@ -303,6 +303,15 @@ export class ChatRouter extends RouterBroker {
         });
 
         return res.status(HttpStatus.OK).json(response);
+      })
+      .post(this.routerPath('findChannelByInvite'), ...guards, async (req, res) => {
+        const inviteCode = req.body?.inviteCode;
+        if (!inviteCode) {
+          return res.status(HttpStatus.BAD_REQUEST).json({ error: 'inviteCode is required' });
+        }
+        const instance = req.params as unknown as { instanceName: string };
+        const response = await chatController.findChannelByInvite(instance as any, { inviteCode });
+        return res.status(HttpStatus.OK).json(response);
       });
   }
 
