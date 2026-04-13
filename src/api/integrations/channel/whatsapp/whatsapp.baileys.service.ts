@@ -742,7 +742,12 @@ export class BaileysStartupService extends ChannelStartupService {
 
         const isGroupJid = this.localSettings.groupsIgnore && isJidGroup(jid);
         const isBroadcast = !this.localSettings.readStatus && isJidBroadcast(jid);
-        const isNewsletter = isJidNewsletter(jid);
+        // Newsletters are no longer blanket-ignored — we want to receive
+        // MESSAGES_UPSERT events for channels the instance follows, so the
+        // PronoBot channel-relay feature can capture and repost them.
+        // If a use case ever needs to drop them again, add a dedicated
+        // newslettersIgnore setting.
+        const isNewsletter = false;
 
         return isGroupJid || isBroadcast || isNewsletter;
       },
