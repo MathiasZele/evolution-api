@@ -5067,43 +5067,39 @@ export class BaileysStartupService extends ChannelStartupService {
       );
     }
 
-    // 3. Génère le contenu forwardé (forwardingScore=1 + isForwarded=true)
-    //    Le 2e arg `false` n'incrémente pas le score si déjà forwardé,
-    //    mais marque comme forwardé si pas encore. Pour notre usage (1er
-    //    forward d'un message newsletter) c'est suffisant pour avoir le badge.
-    //
-    //    On reconstruit un WAMessage explicite : `proto.IWebMessageInfo.key` est
-    //    optional côté types alors que `WAMessage` la requiert. On utilise la
-    //    `sourceKey` fournie par le caller comme fallback garanti.
-    const wamForForward: WAMessage = {
+    // 3. Reconstruction d'un WAMessage explicite avec key garantie
+    //    (proto.IWebMessageInfo.key est optional, WAMessage la requiert).
+    const wamSource: WAMessage = {
       key: webMessageInfo.key ?? sourceKey,
       message: webMessageInfo.message,
     };
-    const forwardedContent = generateForwardMessageContent(wamForForward, false);
 
-    // 4. Wrap pour avoir un WAMessage retournable au caller
-    const newMessageId = generateMessageIDV2(this.client.user?.id);
-    const wrapped = generateWAMessageFromContent(targetJid, forwardedContent, {
-      timestamp: new Date(),
-      userJid: this.instance.wuid,
-      messageId: newMessageId,
-    });
+    // 4. Forward via l'API haut-niveau Baileys `sendMessage({ forward })`.
+    //    Ce pattern délègue à Baileys la génération de contextInfo
+    //    (forwardingScore + isForwarded), le routing newsletter→group→DM,
+    //    et l'encodage approprié du media (réutilisation des directPath).
+    //    Plus robuste que `generateForwardMessageContent + relayMessage`
+    //    qui retournait un succès HTTP mais que WhatsApp rejetait
+    //    silencieusement pour newsletter→group.
+    const sent = await this.client.sendMessage(
+      targetJid,
+      { forward: wamSource } as unknown as AnyMessageContent,
+      { useCachedGroupMetadata: isJidGroup(targetJid) } as unknown as MiscMessageGenerationOptions,
+    );
 
-    // 5. Relay natif (newsletter ou groupe ou DM, peu importe — relayMessage gère)
-    const id = await this.client.relayMessage(targetJid, forwardedContent, {
-      messageId: newMessageId,
-    });
+    if (!sent) {
+      throw new BadRequestException(`Forward failed: sendMessage returned no result`);
+    }
 
-    wrapped.key = { id, remoteJid: targetJid, fromMe: true };
-
-    // Cleanup pattern Evolution (cf. ligne 2474-2478)
-    for (const [key, value] of Object.entries(wrapped)) {
+    // Cleanup pattern Evolution (champs vides supprimés)
+    const result = sent as WAMessage;
+    for (const [key, value] of Object.entries(result)) {
       if (!value || (isArray(value) && (value as any[]).length) === 0) {
-        delete (wrapped as any)[key];
+        delete (result as any)[key];
       }
     }
 
-    return wrapped;
+    return result;
   }
 
   private deserializeMessageBuffers(obj: any): any {
