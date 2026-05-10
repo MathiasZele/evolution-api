@@ -35,6 +35,7 @@ import {
   Button,
   ContactMessage,
   KeyType,
+  ForwardMessageDto,
   MediaMessage,
   Options,
   SendAudioDto,
@@ -104,6 +105,7 @@ import makeWASocket, {
   DisconnectReason,
   downloadContentFromMessage,
   downloadMediaMessage,
+  generateForwardMessageContent,
   generateMessageIDV2,
   generateWAMessageFromContent,
   getAggregateVotesInPollMessage,
@@ -5014,6 +5016,86 @@ export class BaileysStartupService extends ChannelStartupService {
 
   public async templateMessage() {
     throw new Error('Method not available in the Baileys service');
+  }
+
+  /**
+   * PronoBot custom : forward natif WhatsApp avec badge "Transféré".
+   *
+   * Pré-requis : le message source identifié par `data.key` doit déjà avoir
+   * été reçu par cette instance Evolution (présent dans la table Message
+   * Prisma) ou fourni dans `data.message`.
+   *
+   * Pipeline : récupère le proto.IWebMessageInfo source → applique
+   * generateForwardMessageContent (qui ajoute forwardingScore=1 +
+   * isForwarded=true au contextInfo) → relayMessage natif vers la cible.
+   * WhatsApp affiche alors le badge "Transféré" côté client.
+   *
+   * Use case : Group Relay PronoBot — republier 1:1 un message d'une chaîne
+   * newsletter vers des groupes WhatsApp avec le badge natif.
+   */
+  public async forwardMessage(data: ForwardMessageDto) {
+    const targetJid = createJid(data.number);
+
+    // 1. Construire la key source typée Baileys
+    const sourceKey: proto.IMessageKey = {
+      remoteJid: data.key.remoteJid,
+      fromMe: data.key.fromMe ?? false,
+      id: data.key.id,
+    };
+
+    // 2. Récupère le webMessageInfo (cache via getMessage qui interroge la DB Message)
+    let webMessageInfo: proto.IWebMessageInfo | undefined;
+    try {
+      const found = await this.getMessage(sourceKey, true);
+      webMessageInfo = found as proto.IWebMessageInfo | undefined;
+    } catch {
+      webMessageInfo = undefined;
+    }
+
+    // Si non trouvé en DB, accepter le payload `message` fourni par le caller
+    if (!webMessageInfo?.message && data.message) {
+      webMessageInfo = {
+        key: sourceKey,
+        message: data.message,
+      } as proto.IWebMessageInfo;
+    }
+
+    if (!webMessageInfo?.message) {
+      throw new BadRequestException(
+        `Source message ${data.key.id} not found in instance cache. ` +
+          `Provide message body explicitly or wait for it to be received.`,
+      );
+    }
+
+    // 3. Génère le contenu forwardé (forwardingScore=1 + isForwarded=true)
+    //    Le 2e arg `false` n'incrémente pas le score si déjà forwardé,
+    //    mais marque comme forwardé si pas encore. Pour notre usage (1er
+    //    forward d'un message newsletter) c'est suffisant pour avoir le badge.
+    const forwardedContent = generateForwardMessageContent(webMessageInfo, false);
+
+    // 4. Wrap pour avoir un WAMessage retournable au caller
+    const newMessageId = generateMessageIDV2(this.client.user?.id);
+    const wrapped = generateWAMessageFromContent(targetJid, forwardedContent, {
+      timestamp: new Date(),
+      userJid: this.instance.wuid,
+      messageId: newMessageId,
+    });
+
+    // 5. Relay natif (newsletter ou groupe ou DM, peu importe — relayMessage gère)
+    const id = await this.client.relayMessage(targetJid, forwardedContent, {
+      messageId: newMessageId,
+    });
+
+    wrapped.key = { id, remoteJid: targetJid, fromMe: true };
+
+    // Cleanup pattern Evolution (cf. ligne 2474-2478)
+    for (const [key, value] of Object.entries(wrapped)) {
+      if (!value || (isArray(value) && (value as any[]).length) === 0) {
+        delete (wrapped as any)[key];
+      }
+    }
+
+    return wrapped;
   }
 
   private deserializeMessageBuffers(obj: any): any {
