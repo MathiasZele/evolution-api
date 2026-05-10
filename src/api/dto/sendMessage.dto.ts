@@ -14,6 +14,7 @@ export class Options {
   mentionsEveryOne?: boolean;
   mentioned?: string[];
   webhookUrl?: string;
+  messageId?: string;
 }
 
 export class MediaMessage {
@@ -45,6 +46,7 @@ export class Metadata {
   mentioned?: string[];
   encoding?: boolean;
   notConvertSticker?: boolean;
+  messageId?: string;
 }
 
 export class SendTextDto extends Metadata {
@@ -166,4 +168,21 @@ export class SendContactDto extends Metadata {
 export class SendReactionDto {
   key: proto.IMessageKey;
   reaction: string;
+}
+
+// PronoBot custom : forward natif WhatsApp (badge "Transféré").
+// Re-publie un message déjà connu de cette instance vers un autre JID en
+// utilisant generateForwardMessageContent + relayMessage, ce qui apporte le
+// badge natif côté client WhatsApp.
+export class ForwardMessageDto extends Metadata {
+  // Clé du message source (déjà reçu par cette instance via webhook).
+  // L'instance retrouve le message complet dans sa propre DB Prisma.
+  key: {
+    remoteJid: string;
+    fromMe?: boolean;
+    id: string;
+  };
+  // Optionnel : si fourni par le caller, sert de fallback si le message n'est
+  // plus en cache local (rare, mais utile en cas de redémarrage Evolution).
+  message?: proto.IMessage;
 }
