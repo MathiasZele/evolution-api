@@ -448,31 +448,6 @@ export const buttonsMessageSchema: JSONSchema7 = {
   required: ['number'],
 };
 
-// PronoBot custom : forward natif WhatsApp (badge "Transféré").
-export const forwardMessageSchema: JSONSchema7 = {
-  $id: v4(),
-  type: 'object',
-  properties: {
-    number: { ...numberDefinition },
-    key: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', minLength: 1 },
-        remoteJid: { type: 'string', minLength: 1 },
-        fromMe: { type: 'boolean', enum: [true, false] },
-      },
-      required: ['id', 'remoteJid'],
-      ...isNotEmpty('id', 'remoteJid'),
-    },
-    message: { type: 'object' },
-    delay: {
-      type: 'integer',
-      description: 'Enter a value in milliseconds',
-    },
-  },
-  required: ['number', 'key'],
-};
-
 export const decryptPollVoteSchema: JSONSchema7 = {
   $id: v4(),
   type: 'object',

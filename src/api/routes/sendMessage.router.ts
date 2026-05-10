@@ -1,6 +1,5 @@
 import { RouterBroker } from '@api/abstract/abstract.router';
 import {
-  ForwardMessageDto,
   SendAudioDto,
   SendButtonsDto,
   SendContactDto,
@@ -20,7 +19,6 @@ import {
   audioMessageSchema,
   buttonsMessageSchema,
   contactMessageSchema,
-  forwardMessageSchema,
   listMessageSchema,
   locationMessageSchema,
   mediaMessageSchema,
@@ -180,17 +178,6 @@ export class MessageRouter extends RouterBroker {
           schema: buttonsMessageSchema,
           ClassRef: SendButtonsDto,
           execute: (instance, data) => sendMessageController.sendButtons(instance, data),
-        });
-
-        return res.status(HttpStatus.CREATED).json(response);
-      })
-      // PronoBot custom : forward natif WhatsApp (badge "Transféré")
-      .post(this.routerPath('forwardMessage'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<ForwardMessageDto>({
-          request: req,
-          schema: forwardMessageSchema,
-          ClassRef: ForwardMessageDto,
-          execute: (instance, data) => sendMessageController.forwardMessage(instance, data),
         });
 
         return res.status(HttpStatus.CREATED).json(response);

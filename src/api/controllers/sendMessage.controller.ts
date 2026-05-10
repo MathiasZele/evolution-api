@@ -1,6 +1,5 @@
 import { InstanceDto } from '@api/dto/instance.dto';
 import {
-  ForwardMessageDto,
   SendAudioDto,
   SendButtonsDto,
   SendContactDto,
@@ -104,10 +103,5 @@ export class SendMessageController {
 
   public async sendStatus({ instanceName }: InstanceDto, data: SendStatusDto, file?: any) {
     return await this.waMonitor.waInstances[instanceName].statusMessage(data, file);
-  }
-
-  // PronoBot custom : forward natif WhatsApp (badge "Transféré")
-  public async forwardMessage({ instanceName }: InstanceDto, data: ForwardMessageDto) {
-    return await this.waMonitor.waInstances[instanceName].forwardMessage(data);
   }
 }

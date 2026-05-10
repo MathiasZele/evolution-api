@@ -35,7 +35,6 @@ import {
   Button,
   ContactMessage,
   KeyType,
-  ForwardMessageDto,
   MediaMessage,
   Options,
   SendAudioDto,
@@ -105,7 +104,6 @@ import makeWASocket, {
   DisconnectReason,
   downloadContentFromMessage,
   downloadMediaMessage,
-  generateForwardMessageContent,
   generateMessageIDV2,
   generateWAMessageFromContent,
   getAggregateVotesInPollMessage,
@@ -5016,90 +5014,6 @@ export class BaileysStartupService extends ChannelStartupService {
 
   public async templateMessage() {
     throw new Error('Method not available in the Baileys service');
-  }
-
-  /**
-   * PronoBot custom : forward natif WhatsApp avec badge "Transféré".
-   *
-   * Pré-requis : le message source identifié par `data.key` doit déjà avoir
-   * été reçu par cette instance Evolution (présent dans la table Message
-   * Prisma) ou fourni dans `data.message`.
-   *
-   * Pipeline : récupère le proto.IWebMessageInfo source → applique
-   * generateForwardMessageContent (qui ajoute forwardingScore=1 +
-   * isForwarded=true au contextInfo) → relayMessage natif vers la cible.
-   * WhatsApp affiche alors le badge "Transféré" côté client.
-   *
-   * Use case : Group Relay PronoBot — republier 1:1 un message d'une chaîne
-   * newsletter vers des groupes WhatsApp avec le badge natif.
-   */
-  public async forwardMessage(data: ForwardMessageDto) {
-    const targetJid = createJid(data.number);
-
-    // 1. Construire la key source typée Baileys
-    const sourceKey: proto.IMessageKey = {
-      remoteJid: data.key.remoteJid,
-      fromMe: data.key.fromMe ?? false,
-      id: data.key.id,
-    };
-
-    // 2. Récupère le webMessageInfo (cache via getMessage qui interroge la DB Message)
-    let webMessageInfo: proto.IWebMessageInfo | undefined;
-    try {
-      const found = await this.getMessage(sourceKey, true);
-      webMessageInfo = found as proto.IWebMessageInfo | undefined;
-    } catch {
-      webMessageInfo = undefined;
-    }
-
-    // Si non trouvé en DB, accepter le payload `message` fourni par le caller
-    if (!webMessageInfo?.message && data.message) {
-      webMessageInfo = {
-        key: sourceKey,
-        message: data.message,
-      } as proto.IWebMessageInfo;
-    }
-
-    if (!webMessageInfo?.message) {
-      throw new BadRequestException(
-        `Source message ${data.key.id} not found in instance cache. ` +
-          `Provide message body explicitly or wait for it to be received.`,
-      );
-    }
-
-    // 3. Reconstruction d'un WAMessage explicite avec key garantie
-    //    (proto.IWebMessageInfo.key est optional, WAMessage la requiert).
-    const wamSource: WAMessage = {
-      key: webMessageInfo.key ?? sourceKey,
-      message: webMessageInfo.message,
-    };
-
-    // 4. Forward via l'API haut-niveau Baileys `sendMessage({ forward })`.
-    //    Ce pattern délègue à Baileys la génération de contextInfo
-    //    (forwardingScore + isForwarded), le routing newsletter→group→DM,
-    //    et l'encodage approprié du media (réutilisation des directPath).
-    //    Plus robuste que `generateForwardMessageContent + relayMessage`
-    //    qui retournait un succès HTTP mais que WhatsApp rejetait
-    //    silencieusement pour newsletter→group.
-    const sent = await this.client.sendMessage(
-      targetJid,
-      { forward: wamSource } as unknown as AnyMessageContent,
-      { useCachedGroupMetadata: isJidGroup(targetJid) } as unknown as MiscMessageGenerationOptions,
-    );
-
-    if (!sent) {
-      throw new BadRequestException(`Forward failed: sendMessage returned no result`);
-    }
-
-    // Cleanup pattern Evolution (champs vides supprimés)
-    const result = sent as WAMessage;
-    for (const [key, value] of Object.entries(result)) {
-      if (!value || (isArray(value) && (value as any[]).length) === 0) {
-        delete (result as any)[key];
-      }
-    }
-
-    return result;
   }
 
   private deserializeMessageBuffers(obj: any): any {
