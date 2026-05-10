@@ -5071,7 +5071,15 @@ export class BaileysStartupService extends ChannelStartupService {
     //    Le 2e arg `false` n'incrémente pas le score si déjà forwardé,
     //    mais marque comme forwardé si pas encore. Pour notre usage (1er
     //    forward d'un message newsletter) c'est suffisant pour avoir le badge.
-    const forwardedContent = generateForwardMessageContent(webMessageInfo, false);
+    //
+    //    On reconstruit un WAMessage explicite : `proto.IWebMessageInfo.key` est
+    //    optional côté types alors que `WAMessage` la requiert. On utilise la
+    //    `sourceKey` fournie par le caller comme fallback garanti.
+    const wamForForward: WAMessage = {
+      key: webMessageInfo.key ?? sourceKey,
+      message: webMessageInfo.message,
+    };
+    const forwardedContent = generateForwardMessageContent(wamForForward, false);
 
     // 4. Wrap pour avoir un WAMessage retournable au caller
     const newMessageId = generateMessageIDV2(this.client.user?.id);
